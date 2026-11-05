@@ -61,7 +61,8 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:16px}
   <div class="metric"><small>시험 목표일</small><strong id="daysLeft">-</strong><small>2027년 2월 28일</small></div>
   <div class="metric"><small>목표 총점</small><strong id="targetTotalMetric">430점</strong><small>510점 만점 기준</small></div>
   <div class="metric"><small>오늘 순공부</small><strong id="todayHours">0.0h</strong><small>일일 목표 13시간</small></div>
-  <div class="metric"><small>누적 기록일</small><strong id="recordDays">0일</strong><small>공부 기록이 있는 날짜</small></div>
+  <div class="metric"><small>열품타 누적 기록일</small><strong id="recordDays">311일</strong><small>2025년 12월 31일부터 오늘까지</small></div>
+  <div class="metric"><small>열품타 누적 공부시간</small><strong id="totalStudyTime">0시간</strong><small>월별 과거 기록 + 이후 입력</small></div>
  </section>
  <nav id="tabs">
   <button class="active" data-tab="dashboard">대시보드</button><button data-tab="daily">일일 기록</button><button data-tab="ypt">열품타 과목별 가져오기</button><button data-tab="yptTotal">열품타 전체시간</button><button data-tab="books">교재·회독</button><button data-tab="scores">성적 기록</button><button data-tab="analysis">분석</button><button data-tab="planning">주간 계획</button><button data-tab="calendar">시험 캘린더</button>
@@ -313,7 +314,13 @@ function renderDashboard(){
  document.getElementById("dashHours").textContent=fmt(mins/60)+" / 13시간";
  document.getElementById("dashBar").style.width=Math.min(100,mins/780*100)+"%";
  document.getElementById("dashSubject").innerHTML=subjects.map(s=>{let m=today.filter(x=>x.subject===s).reduce((a,x)=>a+Number(x.minutes),0);return `<div class="subject"><span>${s}</span><b>${fmt(m/60)}h</b></div>`}).join("");
- document.getElementById("recordDays").textContent=new Set(state.logs.map(x=>x.date)).size+"일";
+ const recordStart=new Date(2025,11,31); recordStart.setHours(0,0,0,0);
+ const recordToday=new Date(); recordToday.setHours(0,0,0,0);
+ const elapsedRecordDays=Math.max(0,Math.floor((recordToday-recordStart)/86400000)+1);
+ document.getElementById("recordDays").textContent=elapsedRecordDays.toLocaleString("ko-KR")+"일";
+ const yptTotalSeconds=Object.values(state.yptMonthly||{}).reduce((a,b)=>a+Number(b||0),0)+(state.yptDaily||[]).reduce((a,x)=>a+Number(x.seconds||0),0);
+ document.getElementById("totalStudyTime").textContent=`${Math.floor(yptTotalSeconds/3600).toLocaleString("ko-KR")}시간`;
+ document.getElementById("totalStudyTime").title=hms(yptTotalSeconds);
  let days=Math.ceil((new Date("2027-02-28T00:00:00")-new Date())/86400000);
  document.getElementById("daysLeft").textContent=Math.max(0,days)+"일";
  document.getElementById("countdown").textContent=Math.max(0,days)+"일 남음";
