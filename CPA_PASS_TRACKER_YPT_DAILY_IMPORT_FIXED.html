@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#172554">
+<title>CPA PASS TRACKER</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#172033;--muted:#687386;--line:#e4e8f0;--blue:#3157c8;--blue2:#eaf0ff;--green:#16845b;--amber:#a86608;--red:#b43b45}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+header{background:#172554;color:white;padding:22px max(18px,calc((100% - 1120px)/2));}
+header .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:21px;margin:0}header p{margin:7px 0 0;color:#cbd5e1;font-size:13px}
+main{max-width:1120px;margin:20px auto;padding:0 16px 50px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.metric,.panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px}
+.metric small{color:var(--muted);display:block;font-size:12px}.metric strong{font-size:25px;display:block;margin-top:5px}
+nav{display:flex;gap:7px;overflow:auto;padding:4px 0 14px}
+nav button{white-space:nowrap;border:1px solid var(--line);background:white;color:var(--muted);border-radius:999px;padding:9px 14px;cursor:pointer}
+nav button.active{background:var(--blue);color:white;border-color:var(--blue)}
+.panel{margin-bottom:14px}.panel h2{font-size:17px;margin:0 0 13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+label{display:block;font-size:12px;color:var(--muted);margin:9px 0 5px}
+input,select,textarea{width:100%;border:1px solid #d8deea;border-radius:9px;padding:10px;background:white;color:var(--ink);font:inherit}
+textarea{min-height:70px;resize:vertical}
+button.primary,.btn{border:0;border-radius:9px;background:var(--blue);color:white;padding:10px 14px;cursor:pointer;font:inherit}
+button.secondary{border:1px solid var(--line);background:white;color:var(--ink);border-radius:9px;padding:9px 12px;cursor:pointer}
+button.danger{background:#fff0f0;color:var(--red);border:1px solid #f2c9cc;border-radius:9px;padding:8px 10px;cursor:pointer}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;border-bottom:1px solid var(--line);padding:10px 7px;vertical-align:top}
+th{color:var(--muted);font-weight:600;background:#fafbfe}
+.pill{display:inline-block;background:var(--blue2);color:var(--blue);border-radius:999px;padding:3px 8px;font-size:11px}
+.muted{color:var(--muted);font-size:12px}.bar{height:8px;background:#edf0f5;border-radius:99px;overflow:hidden}.bar span{height:100%;display:block;background:var(--blue)}
+.subject{display:flex;justify-content:space-between;gap:10px;margin:10px 0 5px;font-size:13px}
+.hidden{display:none!important}.notice{padding:11px 13px;background:#f0f5ff;border-radius:10px;color:#304b8d;font-size:13px;margin:10px 0}
+.kpi{font-size:23px;font-weight:700}.good{color:var(--green)}.warn{color:var(--amber)}
+.item{padding:11px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}
+.daygrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.day{background:#f7f8fb;border:1px solid var(--line);border-radius:8px;min-height:56px;padding:6px;font-size:11px}
+.day b{display:block;font-size:12px}.day.exam{background:#fff2e6;border-color:#efbd87}
+.tag{font-size:11px;color:var(--muted)}
+footer{color:var(--muted);font-size:11px;text-align:center;padding:16px}
+@media(max-width:720px){.metrics{grid-template-columns:repeat(2,1fr)}.grid2,.grid3{grid-template-columns:1fr}header{padding:18px}.panel{padding:13px}main{padding:0 11px 35px}table{font-size:12px}th,td{padding:8px 5px}}
+</style>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CPA Tracker">
+<link rel="apple-touch-icon" href="icon.svg">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<header>
+ <div class="top"><div><h1>CPA PASS TRACKER</h1><p>2027 공인회계사 1차 · 개인 학습 관리 시스템</p></div><div class="actions" style="margin:0"><button class="secondary" id="exportData">데이터 백업</button><label for="importFile" class="secondary" style="margin:0;cursor:pointer">백업 가져오기</label><input id="importFile" type="file" accept="application/json" style="display:none"><button class="secondary" id="syncSettingsBtn" type="button">클라우드 동기화 설정</button>
+<span class="pill" id="syncStatus" style="background:#dbeafe;color:#1e3a8a">기기 내 저장</span></div></div>
+</header>
+<main>
+ <section class="panel" id="syncPanel" style="display:none;margin-bottom:16px">
+  <h2>기기 간 자동 동기화</h2>
+  <p class="muted">Supabase 프로젝트 정보와 계정으로 연결하면 아이폰·PC의 기록이 같은 계정으로 동기화됩니다.</p>
+  <div class="grid2">
+   <div><label>Supabase Project URL</label><input id="sbUrl" type="url" placeholder="https://xxxxxxxx.supabase.co"></div>
+   <div><label>Supabase anon / publishable key</label><input id="sbKey" type="text" placeholder="공개 anon 또는 publishable key"></div>
+  </div>
+  <div class="grid2" style="margin-top:10px">
+   <div><label>이메일</label><input id="sbEmail" type="email" autocomplete="username" placeholder="이메일"></div>
+   <div><label>비밀번호</label><input id="sbPassword" type="password" autocomplete="current-password" placeholder="비밀번호"></div>
+  </div>
+  <div class="actions" style="margin-top:12px;flex-wrap:wrap">
+   <button id="sbConnect" type="button">설정 저장 및 연결</button><button class="secondary" id="sbSignup" type="button">회원가입</button>
+   <button class="secondary" id="sbLogin" type="button">로그인</button><button class="secondary" id="sbLogout" type="button">로그아웃</button>
+   <button class="secondary" id="sbClose" type="button">닫기</button>
+  </div>
+  <p class="muted" id="syncMessage" style="margin-top:10px">연결 전에는 이 기기에만 저장됩니다.</p>
+  <p class="muted">공개 anon/publishable key만 사용하세요. service_role/secret key는 절대 입력하지 마세요.</p>
+ </section>
+ <section class="metrics">
+  <div class="metric"><small>시험 목표일</small><strong id="daysLeft">-</strong><small>2027년 2월 28일</small></div>
+  <div class="metric"><small>목표 총점</small><strong id="targetTotalMetric">430점</strong><small>510점 만점 기준</small></div>
+  <div class="metric"><small>오늘 순공부</small><strong id="todayHours">0.0h</strong><small>일일 목표 13시간</small></div>
+  <div class="metric"><small>이번 주 누적 공부시간</small><strong id="weekStudyHours">0.0h</strong><small>월요일~오늘 · 일일 기록 기준</small></div>
+  <div class="metric"><small>이번 달 누적 공부시간</small><strong id="monthStudyHours">0.0h</strong><small>1일~오늘 · 일일 기록 기준</small></div>
+  <div class="metric"><small>열품타 누적 기록일</small><strong id="recordDays">311일</strong><small>2025년 12월 31일부터 오늘까지</small></div>
+  <div class="metric"><small>열품타 누적 공부시간</small><strong id="totalStudyTime">0시간</strong><small>월별 과거 기록 + 이후 입력</small></div>
+ </section>
+ <nav id="tabs">
+  <button class="active" data-tab="dashboard">대시보드</button><button data-tab="daily">일일 기록</button><button data-tab="yptTotal">열품타 전체시간</button><button data-tab="books">교재·회독</button><button data-tab="scores">성적 기록</button><button data-tab="analysis">분석</button><button data-tab="planning">주간 계획</button><button data-tab="calendar">시험 캘린더</button>
+ </nav>
+
+ <section id="dashboard" class="tab">
+  <div class="grid2">
+   <div class="panel"><h2>오늘 공부 현황</h2><div class="kpi" id="dashHours">0.0 / 13시간</div><div class="bar" style="margin:10px 0"><span id="dashBar" style="width:0%"></span></div><div class="muted" id="dashDate"></div><div id="dashSubject"></div></div>
+   <div class="panel"><h2>시험까지 남은 기간</h2><div class="kpi" id="countdown">-</div><p class="muted">시험일 기준: 2027년 2월 28일 일요일</p><div class="notice">핵심 원칙: 공부 시간만이 아니라 시간제한 정답률, 오답 원인, 재오답률을 함께 관리하세요.</div></div>
+  </div>
+  <div class="panel"><h2>과목별 최근 성적</h2><div id="recentScores" class="muted">아직 성적 기록이 없습니다. 모의고사 또는 기출 점수를 입력하세요.</div></div>
+  <div class="panel"><h2>오늘의 권장 루틴</h2><div id="routineTable"></div></div>
+ </section>
+
+ <section id="daily" class="tab hidden">
+  <div class="panel"><h2>일일 공부 기록 입력</h2>
+   <div class="grid2">
+    <div><label>날짜</label><input type="date" id="logDate"></div>
+    <div><label>과목</label><select id="logSubject"></select></div>
+    <div><label>순공부 시간 (분)</label><input type="number" id="logMinutes" min="1" placeholder="예: 120"></div>
+    <div><label>문제 풀이 수</label><input type="number" id="logQuestions" min="0" placeholder="예: 40"></div>
+    <div><label>정답 수</label><input type="number" id="logCorrect" min="0" placeholder="예: 32"></div>
+    <div><label>학습 유형</label><select id="logType"><option>강의</option><option>이론</option><option>문제풀이</option><option>오답복습</option><option>모의고사</option><option>암기</option></select></div>
+   </div>
+   <label>오늘 배운 내용 / 오답 원인 / 다음 복습할 내용</label><textarea id="logMemo" placeholder="예: 국세기본법 납세의무 성립 시기 선지 혼동"></textarea>
+   <div class="actions"><button class="primary" id="addLog">기록 저장</button><button class="secondary" id="clearLog">입력 초기화</button></div>
+  </div>
+  <div class="panel"><h2>공부 기록 내역</h2><div id="logsTable"></div></div>
+ </section>
+
+ <section id="yptTotal" class="tab hidden">
+  <div class="panel">
+   <h2>열품타 전체 공부 시간</h2>
+   <p class="muted">과목별 분류 없이 열품타의 월간 누적 시간을 그대로 관리합니다. 기존 과목별 공부 기록과 별도로 집계합니다.</p>
+   <div class="notice"><b>과거 기록 가져오기 완료 기준</b><br>2026년 1월~11월 6일까지의 월간 누적 시간을 등록했습니다. 11월 6일까지의 누적 시간은 50시간 23분 44초입니다. 이후 일별 입력은 2026년 11월 7일부터 추가해 중복을 방지합니다.</div>
+   <div class="grid2">
+    <div><label>기준 월</label><input type="month" id="yptMonth"></div>
+    <div><label>월간 열품타 시간</label><div class="kpi" id="yptMonthTotal">-</div><p class="muted" id="yptMonthDetail"></p></div>
+   </div>
+   <div id="yptMonthlyTable"></div>
+  </div>
+  <div class="panel">
+   <h2>앞으로의 전체 공부 시간 추가</h2>
+   <p class="muted">열품타에서 확인한 하루 전체 공부 시간을 날짜별로 입력하세요. 시·분·초를 그대로 기록하며 월간 합계에 자동 반영됩니다.</p>
+   <div class="grid3">
+    <div><label>날짜 (2026-11-07부터)</label><input type="date" id="yptTotalDate" min="2026-11-07"></div>
+    <div><label>시간</label><input type="number" id="yptTotalHours" min="0" max="24" placeholder="예: 8"></div>
+    <div><label>분</label><input type="number" id="yptTotalMinutes" min="0" max="59" placeholder="예: 23"></div>
+   </div>
+   <div class="grid2">
+    <div><label>초</label><input type="number" id="yptTotalSeconds" min="0" max="59" placeholder="예: 57"></div>
+    <div><label>메모 (선택)</label><input id="yptTotalMemo" placeholder="예: 열품타 일간 통계"></div>
+   </div>
+   <div class="actions"><button class="primary" id="saveYptTotal">전체 시간 저장</button><button class="secondary" id="clearYptTotal">입력 초기화</button></div>
+   <p class="muted" id="yptTotalPreview">입력 시간: 0시간 0분 0초</p>
+  </div>
+  <div class="panel">
+   <h2>열품타 날짜별 기록 가져오기</h2>
+   <p class="muted">열품타에서 날짜별 공부시간을 복사해 붙여넣으세요. 한 줄에 날짜와 시간이 있으면 됩니다. 예: 2026-11-01,08:32:15</p>
+   <textarea id="yptImportText" rows="8" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px" placeholder="2026-11-01,08:32:15&#10;2026-11-02,07:45:00&#10;2026-11-03 9시간 10분 30초"></textarea>
+   <div class="actions"><button class="primary" id="importYptDaily">날짜별 기록 가져오기</button></div>
+   <p class="muted">가져온 날짜가 포함된 달은 날짜별 기록의 합계로 계산합니다. 같은 날짜의 기존 열품타 일별 기록은 교체됩니다. 가져오기 전에 원본 기록을 보관하세요.</p>
+  </div>
+  <div class="panel">
+   <h2>월별 전체 공부 시간</h2>
+   <div id="yptTotalHistory"></div>
+  </div>
+  <div class="panel">
+   <h2>일별 추가 기록</h2>
+   <div id="yptTotalDaily"></div>
+  </div>
+ </section>
+
+ <section id="books" class="tab hidden">
+  <div class="panel"><h2>초기 등록 교재 및 진도</h2><p class="muted">과목별 교재명, 회독 상태, 진도 및 취약 단원을 모두 수정할 수 있습니다. 저장한 내용은 클라우드 동기화 대상입니다.</p><div id="booksTable"></div></div>
+  <div class="panel"><h2>교재 진도 업데이트</h2>
+   <div class="grid2"><div><label>과목</label><select id="bookSubject"></select></div><div><label>교재명</label><input id="bookTitle" placeholder="교재명을 입력하세요"></div></div>
+   <div class="grid2"><div><label>회독 상태</label><input id="bookRound" placeholder="예: 2회독 중 / 3회독 완료"></div><div><label>진도 및 취약 단원</label><input id="bookProgress" placeholder="예: 5장까지 완료 · 오답 표시 중"></div></div><textarea id="bookProgress" placeholder="예: 거시경제학 2회독 진행 중"></textarea>
+   <div class="actions"><button class="primary" id="saveBook">교재·회독 정보 저장</button></div><p class="muted" id="bookSaveMessage">과목을 선택하고 변경할 항목을 입력한 뒤 저장하세요. 빈 항목은 기존 값이 유지됩니다.</p>
+  </div>
+ </section>
+
+ <section id="scores" class="tab hidden">
+  <div class="panel"><h2>모의고사·기출 성적 입력</h2>
+   <div class="grid3"><div><label>시험 날짜</label><input type="date" id="scoreDate"></div><div><label>과목</label><select id="scoreSubject"></select></div><div><label>시험 구분</label><select id="scoreKind"><option>기출</option><option>모의고사</option><option>실전 세트</option></select></div></div>
+   <div class="grid3"><div><label>점수</label><input type="number" id="scoreValue" min="0" max="100" placeholder="0~100"></div><div><label>풀이 시간 (분)</label><input type="number" id="scoreTime" min="0"></div><div><label>문항 수 (선택)</label><input type="number" id="scoreTotal" min="0"></div></div>
+   <label>분석 메모</label><textarea id="scoreMemo" placeholder="예: 시간 부족 3문항, 개념 부족 4문항"></textarea>
+   <div class="actions"><button class="primary" id="addScore">성적 저장</button></div>
+  </div>
+  <div class="panel"><h2>성적 기록</h2><div id="scoresTable"></div></div>
+ </section>
+
+ <section id="analysis" class="tab hidden">
+  <div class="panel">
+   <h2>1차 시험 목표 점수 설정</h2>
+   <p class="muted">공식 과목별 목표를 수정하면 총점과 세부 영역 목표가 함께 계산됩니다. 목표 총점은 440점 이상을 권장합니다.</p>
+   <div class="grid3">
+    <div><label>경영학 (80점 만점)</label><input type="number" id="targetBusiness" min="0" max="80" step="1"></div>
+    <div><label>경제원론 (80점 만점)</label><input type="number" id="targetEconomics" min="0" max="80" step="1"></div>
+    <div><label>기업법 (100점 만점)</label><input type="number" id="targetLaw" min="0" max="100" step="1"></div>
+    <div><label>세법개론 (100점 만점)</label><input type="number" id="targetTax" min="0" max="100" step="1"></div>
+    <div><label>회계학 (150점 만점)</label><input type="number" id="targetAccounting" min="0" max="150" step="1"></div>
+    <div><label>목표 총점 (510점 만점)</label><div class="kpi" id="targetTotalDisplay">442 / 510점</div><p class="muted" id="targetPercent">만점 대비 86.7%</p></div>
+   </div>
+   <div class="actions"><button class="primary" id="saveExamTargets">목표 점수 저장</button><button class="secondary" id="resetExamTargets">기본값으로 복원</button></div>
+   <p class="muted" id="targetSaveMessage">현재 목표: 75 + 60 + 90 + 82 + 135 = 442점</p>
+  </div>
+  <div class="panel"><h2>세부 영역 목표 점수 배분</h2>
+    <p class="muted">문항 수 기준 기본 배분입니다. 각 영역 목표를 직접 수정할 수 있으며, 같은 시험 과목의 합계는 위 공식 목표와 일치해야 저장됩니다.</p>
+    <div id="subTargetEditor"></div>
+    <div class="actions"><button class="primary" id="saveSubTargets">세부 목표 저장</button><button class="secondary" id="resetSubTargets">문항 비율로 다시 배분</button></div>
+    <p class="muted" id="subTargetMessage">일반경영 8문제 + 재무관리 24문제 / 재무회계 35문제 + 정부회계 5문제 + 원가관리회계 10문제</p>
+   </div>
+   <div class="panel"><h2>과목별 학습 분석</h2><p class="muted">최근 모의고사·기출 점수와 목표를 비교합니다. 점수 기록은 성적 기록 탭에서 입력하세요.</p><div id="analysisTable"></div></div>
+  <div class="panel"><h2>오답 분석 가이드</h2><div class="grid2"><div><b>오답 원인 분류</b><p class="muted">개념 부족 · 암기 부족 · 선지 해석 · 계산 실수 · 시간 부족 · 단순 실수</p></div><div><b>매주 확인할 지표</b><p class="muted">시간제한 정답률 · 재오답률 · 과목별 풀이 시간 · 취약 단원 변화</p></div></div></div>
+ </section>
+
+ <section id="planning" class="tab hidden">
+  <div class="panel"><h2>주간 공부 계획</h2><p class="muted">초기 배분안입니다. 성적 데이터가 쌓이면 분석 탭을 참고해 직접 조정하세요.</p><div id="planTable"></div></div>
+  <div class="panel"><h2>주간 목표 수정</h2><div class="grid2"><div><label>과목</label><select id="planSubject"></select></div><div><label>주간 목표 시간</label><input id="planHours" type="number" min="0" step=".5"></div></div><div class="actions"><button class="primary" id="savePlan">목표 저장</button></div></div>
+  <div class="panel"><h2>권장 운영 원칙</h2><ul class="muted"><li>상법: 이론 정독 → 해당 챕터 문제풀이 → 오답 선지 수정</li><li>세법: 이론 선지·국세기본법 반복, 계산 문제 유지</li><li>경제학: 시간제한 문제풀이와 풀이 시간 기록</li><li>재무회계·재무관리: 강점 유지, 취약 유형 중심</li><li>원가관리회계: 1회독 마무리 후 2회독 진입</li><li>일반경영: 강의 완강 후 당일 회상과 객관식 적용</li></ul></div>
+ </section>
+
+ <section id="calendar" class="tab hidden">
+  <div class="panel"><h2>시험일까지 캘린더</h2><div class="actions"><button class="secondary" id="prevMonth">이전 달</button><b id="monthLabel"></b><button class="secondary" id="nextMonth">다음 달</button></div><div class="daygrid" id="calendarGrid" style="margin-top:12px"></div><div class="notice">시험 목표일: 2027년 2월 28일 일요일</div></div>
+  <div class="panel"><h2>단계별 학습 마일스톤</h2><div id="milestones"></div></div>
+ </section>
+ <footer>데이터는 이 브라우저의 로컬 저장소에 저장됩니다. 브라우저 데이터 삭제·기기 변경 시 기록이 사라질 수 있으므로 정기적으로 백업하세요.</footer>
+</main>
+<script>
+const subjects=["일반경영","재무관리","경제학","재무회계","정부회계","원가관리회계","상법","세법"];
+const subjectExamMap={"일반경영":"경영학","재무관리":"경영학","경제학":"경제원론","재무회계":"회계학","정부회계":"회계학","원가관리회계":"회계학","상법":"기업법","세법":"세법개론"};
+const subjectWeights={"일반경영":8,"재무관리":24,"재무회계":35,"정부회계":5,"원가관리회계":10};
+const subjectMax={"일반경영":20,"재무관리":60,"경제학":80,"재무회계":105,"정부회계":15,"원가관리회계":30,"상법":100,"세법":100};
+const initialSubTargets={"일반경영":18.75,"재무관리":56.25,"재무회계":94.5,"정부회계":13.5,"원가관리회계":27};
+const initialBooks=[
+ {subject:"일반경영",book:"최중락 객관식경영학 / 인사조직워크북 플러스",round:"강의 15/21강",progress:"객관식경영학 강의 수강 중. 1.4배속, 하루 3강. 남은 6강 완강 목표."},
+ {subject:"경제학",book:"윤지훈 객관식 경제학",round:"2회독",progress:"거시경제학 2회독 진행 중. 미시·거시 전 범위 점검 필요."},
+ {subject:"재무관리",book:"김종길 객관식 재무관리",round:"3회독 중",progress:"3회독 진행 중. 취약 유형 및 오답 중심으로 마무리."},
+ {subject:"재무회계",book:"박진수 재무회계 객관식 드릴",round:"3회독 중",progress:"3회독 진행 중. 주식보상기준 취약."},
+ {subject:"원가관리회계",book:"임세진 객관식 원가관리회계",round:"1회독 막바지",progress:"1회독 마무리 후 2회독 진입 목표."},
+ {subject:"상법",book:"정인국 객관식 상법",round:"5회독 완료",progress:"이론서를 챕터별 정독한 뒤 해당 챕터 객관식 풀이. 시간제한 실전 점수 확인 필요."},
+ {subject:"세법",book:"양소영 세법 객관식 300제 / 정우승 객관식 세법",round:"300제 5회독 완료 · 정우승 1회독 중",progress:"정우승 교재 중심. 이론 선지 표현 차이 및 국세기본법 취약."}
+];
+const initialPlan={"일반경영":8,"재무관리":8,"경제학":14,"재무회계":10,"정부회계":2,"원가관리회계":9,"상법":14,"세법":15};
+const targetScores={"일반경영":18.75,"재무관리":56.25,"경제학":60,"재무회계":94.5,"정부회계":13.5,"원가관리회계":27,"상법":90,"세법":82};
+const baseline={"일반경영":null,"재무관리":84,"경제학":null,"재무회계":86,"정부회계":null,"원가관리회계":79.5,"상법":null,"세법":75};
+const routine=[
+ ["06:30–08:40","일반경영","객관식 강의 3개"],
+ ["08:40–09:00","일반경영","당일 회상"],
+ ["09:00–10:40","경제학","객관식·오답"],
+ ["11:30–12:30","재무관리","취약 유형"],
+ ["12:30–14:10","재무회계","객관식·오답"],
+ ["14:20–15:20","원가관리회계","계산 문제"],
+ ["15:20–16:30","상법","이론서 챕터 정독"],
+ ["17:20–19:10","상법","해당 챕터 문제·오답"],
+ ["19:10–21:10","세법","이론·국기법·계산"],
+ ["21:10–21:20","일일 정리","오답 기록 및 내일 첫 과제 설정"]
+];
+const defaultExamTargets={"경영학":75,"경제원론":60,"기업법":90,"세법개론":82,"회계학":135};
+const key="cpaPassTrackerLocalV1";
+let state=migrateSubjectLabels(load());
+function load(){
+ try{
+  const saved=JSON.parse(localStorage.getItem(key))||{};
+  const legacyPlan=saved.plan||{};
+  const plan={...initialPlan,...legacyPlan};
+  if(plan["일반경영"]==null && legacyPlan["경영학"]!=null) plan["일반경영"]=legacyPlan["경영학"];
+  delete plan["경영학"];
+  const books=(Array.isArray(saved.books)?saved.books:initialBooks).map(b=>({...b,subject:b.subject==="경영학"?"일반경영":b.subject}));
+  const logs=(Array.isArray(saved.logs)?saved.logs:[]).map(x=>({...x,subject:x.subject==="경영학"?"일반경영":x.subject}));
+  const scores=(Array.isArray(saved.scores)?saved.scores:[]).map(x=>({...x,subject:x.subject==="경영학"?"일반경영":x.subject}));
+  return {
+   logs,scores,books,plan,
+   examTargets:saved.examTargets||{...defaultExamTargets},
+   subTargets:saved.subTargets||{
+    "일반경영":Math.round(Number((saved.examTargets||defaultExamTargets)["경영학"]??75)*8/32*100)/100,
+    "재무관리":Math.round(Number((saved.examTargets||defaultExamTargets)["경영학"]??75)*24/32*100)/100,
+    "재무회계":Math.round(Number((saved.examTargets||defaultExamTargets)["회계학"]??135)*35/50*100)/100,
+    "정부회계":Math.round(Number((saved.examTargets||defaultExamTargets)["회계학"]??135)*5/50*100)/100,
+    "원가관리회계":Math.round(Number((saved.examTargets||defaultExamTargets)["회계학"]??135)*10/50*100)/100
+   },
+   yptMonthly:saved.yptMonthly||{"2026-01":1053584,"2026-02":1053223,"2026-03":1104200,"2026-04":1022115,"2026-05":1121409,"2026-06":890249,"2026-07":1144612,"2026-08":1046053,"2026-09":916150,"2026-10":952308,"2026-11":181424},
+   yptDaily:Array.isArray(saved.yptDaily)?saved.yptDaily:[],
+   yptExactMonths:Array.isArray(saved.yptExactMonths)?saved.yptExactMonths:[]
+  };
+ }catch(e){return {logs:[],scores:[],books:initialBooks,plan:{...initialPlan},examTargets:{...defaultExamTargets},subTargets:{...initialSubTargets}}}
+}
+function migrateSubjectLabels(data){
+ const s=data||{};
+ for(const listName of ["logs","scores","books"]){
+  if(Array.isArray(s[listName])) s[listName]=s[listName].map(x=>({...x,subject:x.subject==="경영학"?"일반경영":x.subject}));
+ }
+ const oldPlan=s.plan||{};
+ s.plan={...initialPlan,...oldPlan};
+ if(oldPlan["일반경영"]==null && oldPlan["경영학"]!=null) s.plan["일반경영"]=oldPlan["경영학"];
+ delete s.plan["경영학"];
+ return s;
+}
+
+function save(){localStorage.setItem(key,JSON.stringify(state));renderAll();queueCloudSave()}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function dateISO(){let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function opts(id){document.getElementById(id).innerHTML=subjects.map(s=>`<option>${s}</option>`).join("")}
+["logSubject","bookSubject","scoreSubject","planSubject"].forEach(opts);
+document.getElementById("logDate").value=dateISO();document.getElementById("scoreDate").value=dateISO();
+document.getElementById("dashDate").textContent=new Date().toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"long"});
+function fmt(n){return Number(n||0).toFixed(1)}
+function hms(sec){
+ sec=Math.max(0,Math.floor(Number(sec)||0));
+ const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
+ return `${h}시간 ${m}분 ${s}초`;
+}
+function yptDailyMonthSum(month){
+ return (state.yptDaily||[]).filter(x=>x.date.startsWith(month)).reduce((a,x)=>a+Number(x.seconds||0),0);
+}
+function yptMonthSum(month){
+ return (state.yptExactMonths||[]).includes(month) ? yptDailyMonthSum(month) : Number((state.yptMonthly||{})[month]||0)+yptDailyMonthSum(month);
+}
+function renderYptTotal(){
+ const monthInput=document.getElementById("yptMonth");
+ if(!monthInput.value) monthInput.value="2026-11";
+ const month=monthInput.value;
+ const exact=(state.yptExactMonths||[]).includes(month);
+ const base=exact?0:Number((state.yptMonthly||{})[month]||0),added=yptDailyMonthSum(month);
+ document.getElementById("yptMonthTotal").textContent=hms(exact?added:base+added);
+ document.getElementById("yptMonthDetail").textContent=exact?`가져온 날짜별 기록 합계 ${hms(added)} (월간 누적과 중복 합산하지 않음)`:`과거 월간 기록 ${hms(base)} · 이후 일별 추가 ${hms(added)}`;
+ const months=Object.keys(state.yptMonthly||{}).sort();
+ document.getElementById("yptMonthlyTable").innerHTML=`<table><thead><tr><th>월</th><th>열품타 월간 누적</th><th>이후 추가</th><th>합계</th></tr></thead><tbody>${months.map(m=>`<tr><td>${m}</td><td>${hms(state.yptMonthly[m])}</td><td>${hms(yptDailyMonthSum(m))}</td><td><b>${hms(yptMonthSum(m))}</b></td></tr>`).join("")}</tbody></table>`;
+ const sorted=[...months].sort().reverse();
+ document.getElementById("yptTotalHistory").innerHTML=`<p class="kpi">${hms(months.reduce((a,m)=>a+yptMonthSum(m),0))}</p><p class="muted">등록된 월간 기록과 이후 일별 추가 기록의 총합</p>`;
+ const daily=[...(state.yptDaily||[])].sort((a,b)=>b.date.localeCompare(a.date));
+ document.getElementById("yptTotalDaily").innerHTML=daily.length?`<table><thead><tr><th>날짜</th><th>전체 공부 시간</th><th>메모</th><th></th></tr></thead><tbody>${daily.map(x=>`<tr><td>${esc(x.date)}</td><td>${hms(x.seconds)}</td><td>${esc(x.memo||"")}</td><td><button class="danger" onclick="deleteYptTotal('${x.id}')">삭제</button></td></tr>`).join("")}</tbody></table>`:'<p class="muted">아직 일별 추가 기록이 없습니다.</p>';
+}
+function updateYptTotalPreview(){
+ const h=Number(document.getElementById("yptTotalHours").value||0),m=Number(document.getElementById("yptTotalMinutes").value||0),s=Number(document.getElementById("yptTotalSeconds").value||0);
+ document.getElementById("yptTotalPreview").textContent=`입력 시간: ${h}시간 ${m}분 ${s}초`;
+}
+["yptTotalHours","yptTotalMinutes","yptTotalSeconds"].forEach(id=>document.getElementById(id).addEventListener("input",updateYptTotalPreview));
+document.getElementById("yptMonth").addEventListener("change",renderYptTotal);
+document.getElementById("importYptDaily").onclick=()=>{
+ const raw=document.getElementById("yptImportText").value.trim();
+ if(!raw){alert("열품타 날짜별 기록을 붙여넣어 주세요.");return}
+ const parsed=[];
+ for(const line of raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)){
+  const dateMatch=line.match(/(20\d{2}-\d{2}-\d{2})/); if(!dateMatch) continue;
+  const date=dateMatch[1]; let sec=null;
+  const clock=line.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if(clock){sec=Number(clock[1])*3600+Number(clock[2])*60+Number(clock[3]||0)}
+  else {const h=line.match(/(\d+)\s*시간/),m=line.match(/(\d+)\s*분/),ss=line.match(/(\d+)\s*초/);if(h||m||ss)sec=Number(h?.[1]||0)*3600+Number(m?.[1]||0)*60+Number(ss?.[1]||0)}
+  if(sec!==null&&sec>0&&sec<=86400) parsed.push({date,seconds:sec,memo:"열품타 날짜별 가져오기"});
+ }
+ if(!parsed.length){alert("인식 가능한 기록이 없습니다. YYYY-MM-DD,HH:MM:SS 형식으로 붙여넣어 주세요.");return}
+ const unique=new Map(); parsed.forEach(x=>unique.set(x.date,x));
+ const months=[...new Set([...unique.keys()].map(d=>d.slice(0,7)))];
+ const ok=confirm(`${unique.size}일의 기록을 가져옵니다. 같은 날짜의 기존 열품타 일별 기록은 교체됩니다. 해당 월은 날짜별 합계로 계산하여 기존 월간 누적과 중복되지 않게 합니다. 계속할까요?`); if(!ok)return;
+ const dates=new Set(unique.keys()); state.yptDaily=(state.yptDaily||[]).filter(x=>!dates.has(x.date));
+ unique.forEach(x=>state.yptDaily.push({id:crypto.randomUUID(),...x}));
+ state.yptExactMonths=[...new Set([...(state.yptExactMonths||[]),...months])];
+ save(); document.getElementById("yptImportText").value=""; alert(`${unique.size}일의 기록을 가져왔습니다.`);
+};
+document.getElementById("saveYptTotal").onclick=()=>{
+ const date=document.getElementById("yptTotalDate").value;
+ const h=Number(document.getElementById("yptTotalHours").value||0),m=Number(document.getElementById("yptTotalMinutes").value||0),s=Number(document.getElementById("yptTotalSeconds").value||0);
+ if(!date||date<"2026-11-07"){alert("과거 월간 누적 기록과 중복되지 않도록 2026년 11월 7일 이후 날짜를 입력하세요.");return}
+ if(h>24||m>59||s>59||h<0||m<0||s<0||!Number.isInteger(h)||!Number.isInteger(m)||!Number.isInteger(s)){alert("시간은 0~24, 분과 초는 0~59의 정수로 입력하세요.");return}
+ const seconds=h*3600+m*60+s;
+ if(seconds<=0){alert("공부 시간을 입력하세요.");return}
+ if((state.yptDaily||[]).some(x=>x.date===date)){alert("해당 날짜의 전체 시간이 이미 등록되어 있습니다. 기존 기록을 삭제한 뒤 다시 입력하세요.");return}
+ state.yptDaily=state.yptDaily||[];
+ state.yptDaily.push({id:crypto.randomUUID(),date,seconds,memo:document.getElementById("yptTotalMemo").value||"열품타 전체 공부 시간"});
+ save();
+ ["yptTotalHours","yptTotalMinutes","yptTotalSeconds","yptTotalMemo"].forEach(id=>document.getElementById(id).value="");
+ updateYptTotalPreview();
+ alert("열품타 전체 공부 시간을 저장했습니다.");
+};
+document.getElementById("clearYptTotal").onclick=()=>{
+ ["yptTotalHours","yptTotalMinutes","yptTotalSeconds","yptTotalMemo"].forEach(id=>document.getElementById(id).value="");
+ updateYptTotalPreview();
+};
+window.deleteYptTotal=id=>{state.yptDaily=(state.yptDaily||[]).filter(x=>x.id!==id);save()};
+function renderAll(){renderDashboard();renderLogs();renderBooks();renderScores();renderExamTargets();renderSubTargets();renderAnalysis();renderPlan();renderCalendar();renderYptTotal()}
+function renderDashboard(){
+ let today=state.logs.filter(x=>x.date===dateISO());let mins=today.reduce((a,x)=>a+Number(x.minutes||0),0);
+ const now=new Date();const todayKey=dateISO();
+ const weekStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+ const mondayOffset=(weekStart.getDay()+6)%7;weekStart.setDate(weekStart.getDate()-mondayOffset);
+ const weekStartKey=`${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,"0")}-${String(weekStart.getDate()).padStart(2,"0")}`;
+ const monthStartKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`;
+ const sumMinutes=items=>items.reduce((total,x)=>total+Number(x.minutes||0),0);
+ const dailySeconds=(from,to)=> (state.yptDaily||[]).filter(x=>x.date>=from&&x.date<=to).reduce((a,x)=>a+Number(x.seconds||0),0);
+ const daySeconds=(date)=>{const ypt=(state.yptDaily||[]).filter(x=>x.date===date);return ypt.length?ypt.reduce((a,x)=>a+Number(x.seconds||0),0):sumMinutes(state.logs.filter(x=>x.date===date))*60;};
+ let weekSeconds=0; for(let d=new Date(weekStart);d<=now;d.setDate(d.getDate()+1)){const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;weekSeconds+=daySeconds(k)}
+ const monthKey=monthStartKey.slice(0,7);
+ const monthSeconds=(state.yptExactMonths||[]).includes(monthKey)?dailySeconds(monthStartKey,todayKey):(Number((state.yptMonthly||{})[monthKey]||0)+dailySeconds(monthStartKey,todayKey));
+ document.getElementById("weekStudyHours").textContent=fmt(weekSeconds/3600)+"h";
+ document.getElementById("monthStudyHours").textContent=fmt(monthSeconds/3600)+"h";
+ document.getElementById("todayHours").textContent=fmt(mins/60)+"h";
+ document.getElementById("targetTotalMetric").textContent=examTargetTotal()+"점";
+ document.getElementById("dashHours").textContent=fmt(mins/60)+" / 13시간";
+ document.getElementById("dashBar").style.width=Math.min(100,mins/780*100)+"%";
+ document.getElementById("dashSubject").innerHTML=subjects.map(s=>{let m=today.filter(x=>x.subject===s).reduce((a,x)=>a+Number(x.minutes),0);return `<div class="subject"><span>${s}</span><b>${fmt(m/60)}h</b></div>`}).join("");
+ const recordStart=new Date(2025,11,31); recordStart.setHours(0,0,0,0);
+ const recordToday=new Date(); recordToday.setHours(0,0,0,0);
+ const elapsedRecordDays=Math.max(0,Math.floor((recordToday-recordStart)/86400000)+1);
+ document.getElementById("recordDays").textContent=elapsedRecordDays.toLocaleString("ko-KR")+"일";
+ const yptTotalSeconds=Object.values(state.yptMonthly||{}).reduce((a,b)=>a+Number(b||0),0)+(state.yptDaily||[]).reduce((a,x)=>a+Number(x.seconds||0),0);
+ document.getElementById("totalStudyTime").textContent=`${Math.floor(yptTotalSeconds/3600).toLocaleString("ko-KR")}시간`;
+ document.getElementById("totalStudyTime").title=hms(yptTotalSeconds);
+ let days=Math.ceil((new Date("2027-02-28T00:00:00")-new Date())/86400000);
+ document.getElementById("daysLeft").textContent=Math.max(0,days)+"일";
+ document.getElementById("countdown").textContent=Math.max(0,days)+"일 남음";
+ let latest=subjects.map(s=>{let x=state.scores.filter(z=>z.subject===s).sort((a,b)=>b.date.localeCompare(a.date))[0];return x?`${s} ${x.score}점`:`${s} 미측정`});
+ document.getElementById("recentScores").innerHTML=latest.map(x=>`<span class="pill" style="margin:4px">${esc(x)}</span>`).join("");
+ document.getElementById("routineTable").innerHTML=`<table><thead><tr><th>시간</th><th>과목</th><th>학습 내용</th></tr></thead><tbody>${routine.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("")}</tbody></table>`;
+}
+function renderLogs(){
+ let el=document.getElementById("logsTable");if(!state.logs.length){el.innerHTML='<p class="muted">아직 기록이 없습니다.</p>';return}
+ el.innerHTML=`<table><thead><tr><th>날짜</th><th>과목 / 유형</th><th>시간</th><th>문제·정답</th><th>메모</th><th></th></tr></thead><tbody>${[...state.logs].reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.subject)}<br><span class="tag">${esc(x.type)}${x.source?" · "+esc(x.source):""}</span></td><td>${x.minutes}분</td><td>${x.questions||"-"} / ${x.correct??"-"}</td><td>${esc(x.memo)}</td><td><button class="danger" onclick="deleteLog('${x.id}')">삭제</button></td></tr>`).join("")}</tbody></table>`;
+}
+function renderBooks(){document.getElementById("booksTable").innerHTML=`<table><thead><tr><th>과목</th><th>교재</th><th>회독·진도</th><th>현재 상태 / 취약점</th></tr></thead><tbody>${state.books.map(b=>`<tr><td><b>${esc(b.subject)}</b></td><td>${esc(b.book||"미입력")}</td><td>${esc(b.round||"미입력")}</td><td>${esc(b.progress||"미입력")}</td></tr>`).join("")}</tbody></table>`}
+function renderScores(){let el=document.getElementById("scoresTable");if(!state.scores.length){el.innerHTML='<p class="muted">아직 성적 기록이 없습니다.</p>';return}el.innerHTML=`<table><thead><tr><th>날짜</th><th>과목</th><th>종류</th><th>점수</th><th>시간</th><th>메모</th><th></th></tr></thead><tbody>${[...state.scores].reverse().map(s=>`<tr><td>${s.date}</td><td>${s.subject}</td><td>${s.kind}</td><td><b>${s.score}</b></td><td>${s.time||"-"}분</td><td>${esc(s.memo)}</td><td><button class="danger" onclick="deleteScore('${s.id}')">삭제</button></td></tr>`).join("")}</tbody></table>`}
+const examTargetFields={"경영학":"targetBusiness","경제원론":"targetEconomics","기업법":"targetLaw","세법개론":"targetTax","회계학":"targetAccounting"};
+const examMax={"경영학":80,"경제원론":80,"기업법":100,"세법개론":100,"회계학":150};
+function examTargetTotal(){return Object.values(state.examTargets||defaultExamTargets).reduce((a,b)=>a+Number(b||0),0)}
+function renderExamTargets(){
+ const targets=state.examTargets||defaultExamTargets;
+ Object.entries(examTargetFields).forEach(([subject,id])=>{const el=document.getElementById(id);if(el && document.activeElement!==el)el.value=targets[subject]??defaultExamTargets[subject]});
+ const total=examTargetTotal();
+ document.getElementById("targetTotalDisplay").textContent=`${total} / 510점`;
+ document.getElementById("targetPercent").textContent=`만점 대비 ${(total/510*100).toFixed(1)}%`;
+ document.getElementById("targetTotalMetric").textContent=`${total}점`;
+}
+document.getElementById("saveExamTargets").onclick=()=>{
+ const next={};
+ for(const [subject,id] of Object.entries(examTargetFields)){
+  const raw=document.getElementById(id).value;
+  const value=Number(raw);
+  if(raw==="" || !Number.isInteger(value) || value<0 || value>examMax[subject]){
+   alert(`${subject} 목표 점수는 0~${examMax[subject]} 사이의 정수로 입력하세요.`);
+   return;
+  }
+  next[subject]=value;
+ }
+ state.examTargets=next;
+ const split={"경영학":["일반경영","재무관리"],"회계학":["재무회계","정부회계","원가관리회계"]};
+ for(const [exam,parts] of Object.entries(split)){
+  const totalWeight=parts.reduce((a,s)=>a+subjectWeights[s],0);
+  parts.forEach(s=>state.subTargets[s]=Math.round(next[exam]*subjectWeights[s]/totalWeight*100)/100);
+ }
+ save();
+ document.getElementById("targetSaveMessage").textContent=`저장 완료: ${Object.values(next).join(" + ")} = ${examTargetTotal()}점`;
+};
+document.getElementById("resetExamTargets").onclick=()=>{
+ state.examTargets={...defaultExamTargets};
+ for(const [exam,parts] of [["경영학",["일반경영","재무관리"]],["회계학",["재무회계","정부회계","원가관리회계"]]]){
+  const w=parts.reduce((a,s)=>a+subjectWeights[s],0);
+  parts.forEach(s=>state.subTargets[s]=Math.round(defaultExamTargets[exam]*subjectWeights[s]/w*100)/100);
+ }
+ save();
+ document.getElementById("targetSaveMessage").textContent="기본 목표로 복원했습니다: 75 + 60 + 90 + 82 + 135 = 442점";
+};
+function renderSubTargets(){
+ const groups=[["경영학",["일반경영","재무관리"]],["회계학",["재무회계","정부회계","원가관리회계"]]];
+ document.getElementById("subTargetEditor").innerHTML=groups.map(([exam,parts])=>`<h3>${exam} 세부 목표 (총 ${state.examTargets[exam]}점)</h3><div class="grid3">${parts.map(s=>`<div><label>${s} · ${subjectWeights[s]}문제</label><input type="number" step="0.25" min="0" max="${subjectMax[s]}" id="subTarget_${s}" value="${Number(state.subTargets?.[s]??initialSubTargets[s]).toFixed(2)}"></div>`).join("")}</div><p class="muted">세부 합계: <b>${parts.reduce((a,s)=>a+Number(state.subTargets?.[s]??initialSubTargets[s]),0).toFixed(2)}점</b> / ${state.examTargets[exam]}점</p>`).join("");
+}
+document.getElementById("saveSubTargets").onclick=()=>{
+ const groups=[["경영학",["일반경영","재무관리"]],["회계학",["재무회계","정부회계","원가관리회계"]]];
+ const next={...(state.subTargets||initialSubTargets)};
+ for(const [exam,parts] of groups){
+  let sum=0;
+  for(const s of parts){const raw=document.getElementById("subTarget_"+s).value,v=Number(raw);if(raw===""||!Number.isFinite(v)||v<0||v>subjectMax[s]){alert(s+" 목표 점수를 확인해 주세요.");return;}next[s]=v;sum+=v;}
+  if(Math.abs(sum-Number(state.examTargets[exam]))>0.001){alert(exam+" 세부 목표 합계는 "+state.examTargets[exam]+"점이어야 합니다. 현재 "+sum.toFixed(2)+"점입니다.");return;}
+ }
+ state.subTargets=next;save();document.getElementById("subTargetMessage").textContent="세부 목표가 저장됐습니다. PC와 아이폰에 동기화됩니다.";
+};
+document.getElementById("resetSubTargets").onclick=()=>{
+ const next={...state.subTargets};
+ for(const [exam,parts] of [["경영학",["일반경영","재무관리"]],["회계학",["재무회계","정부회계","원가관리회계"]]]){
+  const w=parts.reduce((a,s)=>a+subjectWeights[s],0);
+  parts.forEach(s=>next[s]=Math.round(Number(state.examTargets[exam])*subjectWeights[s]/w*100)/100);
+ }
+ state.subTargets=next;save();renderSubTargets();document.getElementById("subTargetMessage").textContent="문항 수 비율로 다시 배분했습니다.";
+};
+function latestScore(s){return state.scores.filter(x=>x.subject===s).sort((a,b)=>b.date.localeCompare(a.date))[0]}
+function renderAnalysis(){document.getElementById("analysisTable").innerHTML=`<table><thead><tr><th>세부 영역</th><th>최근 입력 점수</th><th>목표</th><th>목표 대비</th><th>우선 관리</th></tr></thead><tbody>${subjects.map(s=>{let x=latestScore(s),base=baseline[s],score=x?Number(x.score):base,target=(s==="일반경영"||s==="재무관리"||s==="재무회계"||s==="정부회계"||s==="원가관리회계")?Number(state.subTargets?.[s]??initialSubTargets[s]):targetScores[s],diff=score==null?null:score-target;let priority=score==null?"실전 측정 필요":diff<0?"보완 우선":"유지·실수 관리";return `<tr><td><b>${s}</b></td><td>${x?x.score+"점":(base==null?"미측정":base+"점 · 기존")}</td><td>${target.toFixed(2).replace(/\\.?0+$/,"")}점</td><td>${diff==null?"-":(diff>0?"+":"")+diff.toFixed(1)+"점"}</td><td>${priority}</td></tr>`}).join("")}</tbody></table>`}
+function renderPlan(){document.getElementById("planTable").innerHTML=`<table><thead><tr><th>과목</th><th>주간 목표</th><th>학습 초점</th></tr></thead><tbody>${subjects.map(s=>`<tr><td>${s}</td><td><b>${Number(state.plan[s]||0)}시간</b></td><td>${({"일반경영":"강의 완강·당일 회상·객관식","경제학":"거시 2회독 완료·시간제한 풀이","재무관리":"3회독 마무리·취약 유형","재무회계":"주식보상기준·오답 반복","원가관리회계":"1회독 마무리·2회독","상법":"이론 정독 후 챕터 문제·선지 분석","세법":"정우승 교재·이론 선지·국기법"})[s]}</td></tr>`).join("")}<tr><th>합계</th><th>${Object.values(state.plan).reduce((a,b)=>a+Number(b),0)}시간</th><th>주간 배분안</th></tr></tbody></table>`}
+let calDate=new Date(2026,10,1);
+function renderCalendar(){let y=calDate.getFullYear(),m=calDate.getMonth();document.getElementById("monthLabel").textContent=`${y}년 ${m+1}월`;let first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate(),html=["일","월","화","수","목","금","토"].map(x=>`<div class="tag" style="text-align:center;padding:6px">${x}</div>`).join("");for(let i=0;i<first;i++)html+='<div></div>';for(let d=1;d<=last;d++){let exam=y===2027&&m===1&&d===28;let iso=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;let count=state.logs.filter(x=>x.date===iso).length;html+=`<div class="day ${exam?"exam":""}"><b>${d}${exam?" 🎯":""}</b>${count?`<span class="tag">${count}개 기록</span>`:""}</div>`}document.getElementById("calendarGrid").innerHTML=html;document.getElementById("milestones").innerHTML=[["11/22","강의 완강·1회독 마무리"],["12/20","주요 과목 2~3회독 및 기출"],["1/17","취약점 집중·모의고사 정례화"],["2/7","실전 적응 및 과락 위험 관리"],["2/8–시험일","최종 정리·컨디션 관리"]].map(x=>`<div class="item"><b>${x[0]}</b><div class="muted">${x[1]}</div></div>`).join("")}
+document.getElementById("tabs").addEventListener("click",e=>{let b=e.target.closest("button[data-tab]");if(!b)return;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("hidden",x.id!==b.dataset.tab))});
+document.getElementById("addLog").onclick=()=>{let minutes=Number(document.getElementById("logMinutes").value),q=Number(document.getElementById("logQuestions").value||0),c=document.getElementById("logCorrect").value===""?null:Number(document.getElementById("logCorrect").value);if(!minutes||minutes<1){alert("공부 시간을 분 단위로 입력하세요.");return}if(c!==null&&c>q){alert("정답 수는 풀이 문항 수보다 클 수 없습니다.");return}state.logs.push({id:crypto.randomUUID(),date:document.getElementById("logDate").value,subject:document.getElementById("logSubject").value,minutes,questions:q,correct:c,type:document.getElementById("logType").value,memo:document.getElementById("logMemo").value});save();document.getElementById("logMinutes").value="";document.getElementById("logQuestions").value="";document.getElementById("logCorrect").value="";document.getElementById("logMemo").value=""};
+document.getElementById("clearLog").onclick=()=>["logMinutes","logQuestions","logCorrect","logMemo"].forEach(id=>document.getElementById(id).value="");
+window.deleteLog=id=>{state.logs=state.logs.filter(x=>x.id!==id);save()};
+document.getElementById("saveBook").onclick=()=>{
+ const subject=document.getElementById("bookSubject").value;
+ const book=document.getElementById("bookTitle").value.trim();
+ const round=document.getElementById("bookRound").value.trim();
+ const progress=document.getElementById("bookProgress").value.trim();
+ let item=state.books.find(x=>x.subject===subject);
+ if(!item){item={subject,book:"",round:"",progress:""};state.books.push(item)}
+ if(book)item.book=book;
+ if(round)item.round=round;
+ if(progress)item.progress=progress;
+ save();
+ document.getElementById("bookTitle").value="";
+ document.getElementById("bookRound").value="";
+ document.getElementById("bookProgress").value="";
+ const msg=document.getElementById("bookSaveMessage");if(msg)msg.textContent=subject+" 교재·회독 정보가 저장되었습니다.";
+};
+document.getElementById("addScore").onclick=()=>{let score=Number(document.getElementById("scoreValue").value);if(document.getElementById("scoreValue").value===""||score<0||score>100){alert("점수는 0~100 사이로 입력하세요.");return}state.scores.push({id:crypto.randomUUID(),date:document.getElementById("scoreDate").value,subject:document.getElementById("scoreSubject").value,kind:document.getElementById("scoreKind").value,score,time:Number(document.getElementById("scoreTime").value||0),total:Number(document.getElementById("scoreTotal").value||0),memo:document.getElementById("scoreMemo").value});save();["scoreValue","scoreTime","scoreTotal","scoreMemo"].forEach(id=>document.getElementById(id).value="")};
+window.deleteScore=id=>{state.scores=state.scores.filter(x=>x.id!==id);save()};
+document.getElementById("savePlan").onclick=()=>{let s=document.getElementById("planSubject").value,h=Number(document.getElementById("planHours").value);if(h<0||!Number.isFinite(h)){alert("올바른 시간을 입력하세요.");return}state.plan[s]=h;save();document.getElementById("planHours").value=""};
+document.getElementById("prevMonth").onclick=()=>{calDate.setMonth(calDate.getMonth()-1);renderCalendar()};
+document.getElementById("nextMonth").onclick=()=>{calDate.setMonth(calDate.getMonth()+1);renderCalendar()};
+document.getElementById("exportData").onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="CPA_PASS_TRACKER_backup_"+dateISO()+".json";a.click();URL.revokeObjectURL(url)};
+document.getElementById("importFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text());if(!Array.isArray(data.logs)||!Array.isArray(data.scores)||!Array.isArray(data.books)||!data.plan)throw new Error("형식이 올바르지 않습니다.");if(confirm("현재 기록을 가져온 백업 데이터로 교체할까요?")){state=migrateSubjectLabels({...data,examTargets:data.examTargets||{...defaultExamTargets}});save();alert("백업 데이터를 불러왔습니다.");}}catch(err){alert("백업 파일을 읽지 못했습니다: "+err.message)}e.target.value=""};
+
+const SB_CFG_KEY="cpaPassTrackerSupabaseConfigV1";
+let sbClient=null,sbUser=null,sbChannel=null,cloudSaveTimer=null,applyingCloud=false;
+function syncMsg(t){const e=document.getElementById("syncMessage");if(e)e.textContent=t}
+function syncBadge(t,ok=false){const e=document.getElementById("syncStatus");if(e){e.textContent=t;e.style.background=ok?"#dcfce7":"#dbeafe";e.style.color=ok?"#166534":"#1e3a8a"}}
+function readSbConfig(){try{return JSON.parse(localStorage.getItem(SB_CFG_KEY)||"{}")}catch(e){return {}}}
+function fillSbConfig(){const c=readSbConfig();document.getElementById("sbUrl").value=c.url||"";document.getElementById("sbKey").value=c.key||""}
+function showSyncPanel(show){document.getElementById("syncPanel").style.display=show?"block":"none";if(show)fillSbConfig()}
+function queueCloudSave(){if(!sbClient||!sbUser||applyingCloud)return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(pushCloudState,700)}
+async function pushCloudState(){
+ if(!sbClient||!sbUser||applyingCloud)return false;
+ try{
+  const payload=JSON.parse(JSON.stringify(state));
+  const {data,error}=await sbClient.from("user_data").upsert(
+   {user_id:sbUser.id,payload,updated_at:new Date().toISOString()},
+   {onConflict:"user_id"}
+  ).select("user_id,updated_at").single();
+  if(error)throw error;
+  syncBadge("클라우드 동기화 완료",true);
+  syncMsg("클라우드 저장 성공 · "+new Date(data.updated_at).toLocaleString("ko-KR"));
+  return true;
+ }catch(e){
+  syncBadge("동기화 오류");
+  syncMsg("클라우드 저장 실패: "+(e.message||String(e))+" · Supabase SQL/RLS 설정을 확인하세요. 이 기기에는 로컬 저장되어 있습니다.");
+  return false;
+ }
+}
+async function pullCloudState(){
+ if(!sbClient||!sbUser)return;
+ try{
+  const {data,error}=await sbClient.from("user_data").select("payload,updated_at").eq("user_id",sbUser.id).maybeSingle();
+  if(error)throw error;
+  if(data&&data.payload){
+   applyingCloud=true;
+   state=migrateSubjectLabels({...state,...data.payload,examTargets:data.payload.examTargets||{...defaultExamTargets}});
+   localStorage.setItem(key,JSON.stringify(state));renderAll();applyingCloud=false;
+   syncMsg("클라우드 기록을 불러왔습니다. 마지막 저장: "+new Date(data.updated_at).toLocaleString("ko-KR"));
+  }else{
+   syncMsg("클라우드에 저장된 행이 없습니다. 이 기기의 기록을 최초 업로드합니다.");
+   const ok=await pushCloudState();
+   if(!ok)throw new Error("최초 기록 업로드에 실패했습니다. 위 오류 메시지를 확인하세요.");
+  }
+  if(sbChannel)await sbClient.removeChannel(sbChannel);
+  sbChannel=sbClient.channel("cpa-user-"+sbUser.id)
+   .on("postgres_changes",{event:"*",schema:"public",table:"user_data",filter:"user_id=eq."+sbUser.id},payload=>{
+    if(!payload.new||!payload.new.payload||payload.new.user_id!==sbUser.id)return;
+    applyingCloud=true;
+    state=migrateSubjectLabels({...state,...payload.new.payload,examTargets:payload.new.payload.examTargets||{...defaultExamTargets}});
+    localStorage.setItem(key,JSON.stringify(state));renderAll();applyingCloud=false;
+    syncMsg("다른 기기의 변경 내용을 반영했습니다.");
+   }).subscribe((status)=>{if(status==="CHANNEL_ERROR")syncMsg("실시간 알림 연결 오류. 저장 자체는 별도로 확인됩니다.")});
+  if(!document.getElementById("syncStatus").textContent.includes("오류"))syncBadge("클라우드 연결됨",true);
+ }catch(e){
+  applyingCloud=false;syncBadge("동기화 오류");syncMsg("클라우드 연결/불러오기 실패: "+(e.message||String(e)));
+ }
+}
+async function connectSupabase(){
+ const url=document.getElementById("sbUrl").value.trim(),keyValue=document.getElementById("sbKey").value.trim();
+ if(!url||!keyValue){syncMsg("Project URL과 anon/publishable key를 입력하세요.");return}
+ if(!window.supabase?.createClient){syncMsg("동기화 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하세요.");return}
+ localStorage.setItem(SB_CFG_KEY,JSON.stringify({url,key:keyValue}));sbClient=window.supabase.createClient(url,keyValue);
+ const {data,error}=await sbClient.auth.getSession();if(error){syncMsg(error.message);return}
+ if(data.session){sbUser=data.session.user;await pullCloudState()}else{syncBadge("설정 저장됨");syncMsg("설정 저장 완료. 회원가입 또는 로그인을 진행하세요.")}
+}
+async function authAction(kind){
+ if(!sbClient){await connectSupabase();if(!sbClient)return}
+ const email=document.getElementById("sbEmail").value.trim(),password=document.getElementById("sbPassword").value;
+ if(!email||!password){syncMsg("이메일과 비밀번호를 입력하세요.");return}
+ const result=kind==="signup"?await sbClient.auth.signUp({email,password}):await sbClient.auth.signInWithPassword({email,password});
+ if(result.error){syncMsg(result.error.message);return}
+ if(result.data.session){sbUser=result.data.user;await pullCloudState()}else syncMsg("회원가입 요청 완료. 이메일 인증 후 로그인하세요.")
+}
+document.getElementById("syncSettingsBtn").addEventListener("click",()=>showSyncPanel(true));
+document.getElementById("sbClose").addEventListener("click",()=>showSyncPanel(false));
+document.getElementById("sbConnect").addEventListener("click",connectSupabase);
+document.getElementById("sbSignup").addEventListener("click",()=>authAction("signup"));
+document.getElementById("sbLogin").addEventListener("click",()=>authAction("login"));
+document.getElementById("sbLogout").addEventListener("click",async()=>{if(sbClient)await sbClient.auth.signOut();sbUser=null;sbChannel=null;syncBadge("기기 내 저장");syncMsg("로그아웃했습니다. 이 기기의 기록은 유지됩니다.")});
+(async()=>{const c=readSbConfig();if(c.url&&c.key){document.getElementById("sbUrl").value=c.url;document.getElementById("sbKey").value=c.key;await connectSupabase()}})();
+
+renderAll();
+</script>
+<script>
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(err => console.warn("Service worker registration failed:", err));
+  });
+}
+
+</script>
+</body>
+</html>
