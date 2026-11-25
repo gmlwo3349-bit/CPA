@@ -1,0 +1,11 @@
+{
+  "version": "v71.0.0",
+  "build": "2026-11-25",
+  "features": [
+    "v64 cloud daily snapshots with RLS",
+    "v65 active-tab lazy redraw",
+    "v67 cause x topic cross-analysis",
+    "v68 exam score stability"
+  ],
+  "requiresSupabaseSQL": "cpa_tracker_backups.sql"
+}
